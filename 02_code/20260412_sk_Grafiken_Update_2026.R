@@ -1,7 +1,7 @@
 # =============================================================================
-# High-End Visualisierungen – Steuerzuschuss Buchpublikation (Kuhn/Illgen)
-# Minimalist, publication-ready design
-# Author: Sebastian Kuhn | 2026-04-12
+# Visualisierungen – Steuerzuschuss Buchpublikation (Kuhn/Illgen)
+# Minimalistisches, publikationsreifes Design
+# Autor: Sebastian Kuhn | 2026-04-12
 # =============================================================================
 
 library(tidyverse)
@@ -10,52 +10,55 @@ library(scales)
 library(ggtext)
 library(systemfonts)
 
-# --- Config -------------------------------------------------------------------
+# --- Konfiguration ------------------------------------------------------------
 
 raw_path <- "00_raw_data/260129_Aktualisierung_Grafiken_Steuerzuschuss.xlsx"
 out_path <- "06_graphs/"
 
-# Color palette: muted, high-contrast, print-safe
-col_primary   <- "#1B2A4A"
-col_secondary <- "#3D6098"
-col_accent    <- "#7EA1C4"
-col_accent2   <- "#B8CDE0"
-col_highlight <- "#C44E52"
+# Farbpalette: kontrastreich, drucksicher
+col_primary   <- "#5D2A9D"   # kräftiges Violett (Signature)
+col_secondary <- "#C2298A"   # leuchtendes Fuchsia/Magenta
+col_accent    <- "#00B39B"   # Petrol/Teal (gedämpft, neben Purple)
+col_accent2   <- "#5ECFBF"   # helles Türkis (Abstufung zu Petrol)
+col_highlight <- "#E02D52"   # Warnsignal-Rot (für Deckungslücken-Ribbon)
 col_grey      <- "#8C8C8C"
 col_lightgrey <- "#E8E8E8"
 col_bg        <- "#FFFFFF"
 
-# Typography: use system fonts with fallback
+# Diagramm-spezifische Paletten
+einnahmen_colors <- c(col_primary, col_secondary, col_accent, col_accent2)
+
+# Typografie: Systemschriften mit Fallback
 font_title <- "Helvetica Neue"
 font_body  <- "Helvetica Neue"
 
-# Minimal base theme for all charts
+# Minimales Basis-Theme für alle Diagramme
 theme_publication <- function(base_size = 13) {
   theme_minimal(base_size = base_size, base_family = font_body) +
     theme(
-      # Background
+      # Hintergrund
       plot.background    = element_rect(fill = col_bg, color = NA),
       panel.background   = element_rect(fill = col_bg, color = NA),
-      # Grid
+      # Rasterlinien
       panel.grid.major.y = element_line(color = col_lightgrey, linewidth = 0.3),
       panel.grid.major.x = element_blank(),
       panel.grid.minor   = element_blank(),
-      # Axes
+      # Achsen
       axis.line.x        = element_line(color = "#333333", linewidth = 0.4),
       axis.ticks.x       = element_line(color = "#333333", linewidth = 0.3),
       axis.ticks.length  = unit(3, "pt"),
       axis.title.x       = element_blank(),
       axis.title.y       = element_text(size = rel(0.85), color = "#555555",
-                                        hjust = 1, margin = margin(r = 8)),
+                                        hjust = 0.5, margin = margin(r = 8)),
       axis.text          = element_text(color = "#444444"),
-      # Legend
+      # Legende
       legend.position     = "top",
       legend.justification = "left",
       legend.title        = element_blank(),
       legend.key.size     = unit(12, "pt"),
       legend.text         = element_text(size = rel(0.8), color = "#444444"),
       legend.margin       = margin(b = -5),
-      # Title / Caption
+      # Titel / Quellenangabe
       plot.title          = element_text(face = "bold", size = rel(1.25),
                                          color = "#1a1a1a", margin = margin(b = 4)),
       plot.subtitle       = element_text(size = rel(0.9), color = "#666666",
@@ -70,7 +73,7 @@ theme_publication <- function(base_size = 13) {
 
 
 # =============================================================================
-# 1) Donut Chart – Einnahmen des Gesundheitsfonds 2024
+# 1a) Horizontaler Balken – Einnahmen des Gesundheitsfonds 2024
 # =============================================================================
 
 data_einnahmen <- tibble(
@@ -80,29 +83,27 @@ data_einnahmen <- tibble(
 ) %>%
   mutate(
     Posten = fct_inorder(Posten),
-    # Label inside bar: percentage
+    # Label im Balken: Prozentanteil
     pct_label = paste0(format(round(Prozentual * 100, 1), nsmall = 1, decimal.mark = ","), " %"),
-    # Label below bar: absolute value
-    abs_label = paste0(format(round(Absolut, 1), nsmall = 1, decimal.mark = ","), " Mrd. €"),
-    # Cumulative positions for label placement
+    # Label unter dem Balken: Absolutwert
+    abs_label = paste0(trimws(format(round(Absolut, 1), nsmall = 1, decimal.mark = ",")), " Mrd. €"),
+    # Kumulative Positionen für Label-Platzierung
     xmax = cumsum(Prozentual),
     xmin = lag(xmax, default = 0),
     xmid = (xmin + xmax) / 2
   )
 
-einnahmen_colors <- c(col_primary, col_secondary, col_accent, col_accent2)
-
-# Stagger label positions for small segments to avoid overlap
+# Label-Positionen für kleine Segmente versetzt, um Überlappung zu vermeiden
 data_einnahmen <- data_einnahmen %>%
   mutate(
-    # Category labels: stagger vertically for the 3 small segments
+    # Kategorie-Labels: vertikal versetzt für die kleinen Segmente
     y_cat = case_when(
       Posten == "Beiträge"                        ~ 1.12,
       str_detect(Posten, "Zusatz")                ~ 1.22,
       str_detect(Posten, "Steuer")                ~ 1.12,
       TRUE                                        ~ 1.22  # Weitere Einnahmen
     ),
-    # Absolute labels below: same stagger
+    # Absolutwert-Labels unten: gleicher Versatz
     y_abs = case_when(
       Posten == "Beiträge"                        ~ 0.18,
       str_detect(Posten, "Zusatz")                ~ 0.08,
@@ -112,21 +113,21 @@ data_einnahmen <- data_einnahmen %>%
   )
 
 p_einnahmen <- ggplot(data_einnahmen) +
-  # Horizontal stacked bar
+  # Horizontaler gestapelter Balken
   geom_rect(aes(xmin = xmin, xmax = xmax, ymin = 0.3, ymax = 1, fill = Posten),
             color = col_bg, linewidth = 0.8) +
-  # Percentage labels inside bars (only Beiträge fits comfortably)
+  # Prozent-Labels im Balken (nur Beiträge passt komfortabel)
   geom_text(data = data_einnahmen %>% filter(Prozentual > 0.08),
             aes(x = xmid, y = 0.65, label = pct_label),
             color = "white", fontface = "bold", size = 4.5, family = font_body) +
-  # Category labels above bar (staggered)
+  # Kategorie-Labels über dem Balken (versetzt)
   geom_text(aes(x = xmid, y = y_cat, label = Posten),
             color = "#333333", size = 3, family = font_body, lineheight = 0.85) +
-  # Thin connector lines from label to segment
+  # Dünne Verbindungslinien vom Label zum Segment
   geom_segment(data = data_einnahmen %>% filter(Prozentual < 0.5),
                aes(x = xmid, xend = xmid, y = 1.02, yend = y_cat - 0.03),
                color = "#cccccc", linewidth = 0.25) +
-  # Absolute values below bar (staggered)
+  # Absolutwerte unter dem Balken (versetzt)
   geom_text(aes(x = xmid, y = y_abs, label = abs_label),
             color = "#888888", size = 2.8, family = font_body) +
   scale_fill_manual(values = einnahmen_colors) +
@@ -153,8 +154,7 @@ p_einnahmen <- ggplot(data_einnahmen) +
     plot.margin           = margin(20, 20, 15, 15)
   )
 
-ggsave(paste0(out_path, "einnahmen_anteile_2024.png"), p_einnahmen,
-       width = 26, height = 8, units = "cm", dpi = 600, bg = col_bg)
+p_einnahmen
 
 # --- 1b) Donut-Variante mit separater Legende ---
 
@@ -168,18 +168,18 @@ data_donut <- tibble(
     ymax   = cumsum(Prozentual),
     ymin   = lag(ymax, default = 0),
     ymid   = (ymin + ymax) / 2,
-    # Legend-style label: "Beiträge – 85,3 % (266,5 Mrd. €)"
+    # Legenden-Label: "Beiträge – 85,3 % (266,5 Mrd. €)"
     legend_label = paste0(
       Posten, " \u2013 ",
       format(round(Prozentual * 100, 1), nsmall = 1, decimal.mark = ","), " % (",
-      format(round(Absolut, 1), nsmall = 1, decimal.mark = ","), " Mrd. \u20AC)"
+      trimws(format(round(Absolut, 1), nsmall = 1, decimal.mark = ",")), " Mrd. \u20AC)"
     )
   )
 
 p_donut <- ggplot(data_donut, aes(ymax = ymax, ymin = ymin, xmax = 4, xmin = 2.6, fill = Posten)) +
   geom_rect(color = col_bg, linewidth = 1.2) +
   coord_polar(theta = "y") +
-  xlim(c(1, 4.5)) +
+  xlim(c(1.5, 4.2)) +
   scale_fill_manual(
     values = einnahmen_colors,
     labels = data_donut$legend_label
@@ -195,30 +195,29 @@ p_donut <- ggplot(data_donut, aes(ymax = ymax, ymin = ymin, xmax = 4, xmin = 2.6
     legend.position       = "bottom",
     legend.direction      = "vertical",
     legend.justification  = "left",
-    legend.text           = element_text(size = 9, color = "#444444", margin = margin(b = 3)),
-    legend.key.size       = unit(10, "pt"),
+    legend.text           = element_text(size = 12, color = "#333333", margin = margin(b = 4)),
+    legend.key.size       = unit(18, "pt"),
     legend.key            = element_rect(color = NA),
-    legend.spacing.y      = unit(2, "pt"),
+    legend.spacing.y      = unit(4, "pt"),
     legend.title          = element_blank(),
-    legend.margin         = margin(t = 5),
-    plot.title            = element_text(face = "bold", size = 14, color = "#1a1a1a",
-                                         margin = margin(b = 4)),
-    plot.subtitle         = element_text(size = 10, color = "#666666",
-                                         margin = margin(b = 5)),
+    legend.box.margin     = margin(t = -20),
+    plot.title            = element_text(face = "bold", size = 16, color = "#1a1a1a",
+                                         margin = margin(b = 2)),
+    plot.subtitle         = element_text(size = 11, color = "#666666",
+                                         margin = margin(b = -5)),
     plot.caption          = element_text(size = 8, color = "#999999", hjust = 0,
-                                         margin = margin(t = 12)),
+                                         margin = margin(t = 8)),
     plot.title.position   = "plot",
     plot.caption.position = "plot",
-    plot.margin           = margin(15, 15, 10, 15)
+    plot.margin           = margin(10, 10, 5, 10)
   ) +
   guides(fill = guide_legend(byrow = TRUE))
 
-ggsave(paste0(out_path, "einnahmen_donut_2024.png"), p_donut,
-       width = 18, height = 18, units = "cm", dpi = 600, bg = col_bg)
+p_donut
 
 # --- 1c) Horizontaler Balken mit Legende unterhalb ---
 
-# Build legend labels without linebreaks
+# Legenden-Labels ohne Zeilenumbrüche
 legend_labels_clean <- paste0(
   c("Beiträge", "Zusatzbeiträge", "Steuerzuschuss", "Weitere Einnahmen"),
   " \u2013 ",
@@ -227,10 +226,10 @@ legend_labels_clean <- paste0(
 ) %>% str_replace_all("\n", " ")
 
 p_einnahmen_legend <- ggplot(data_einnahmen) +
-  # Same geom_rect approach as direct-label variant (no geom_col issues)
+  # Gleicher geom_rect-Ansatz wie Direkt-Label-Variante
   geom_rect(aes(xmin = xmin, xmax = xmax, ymin = 0.3, ymax = 1, fill = Posten),
             color = col_bg, linewidth = 0.8) +
-  # Percentage labels inside bars (only Beiträge – rest too narrow)
+  # Prozent-Labels im Balken (nur Beiträge – Rest zu schmal)
   geom_text(data = data_einnahmen %>% filter(Prozentual > 0.08),
             aes(x = xmid, y = 0.65, label = pct_label),
             color = "white", fontface = "bold", size = 5, family = font_body) +
@@ -269,9 +268,6 @@ p_einnahmen_legend <- ggplot(data_einnahmen) +
   ) +
   guides(fill = guide_legend(byrow = TRUE))
 
-ggsave(paste0(out_path, "einnahmen_balken_legende_2024.png"), p_einnahmen_legend,
-       width = 24, height = 10, units = "cm", dpi = 600, bg = col_bg)
-
 
 # =============================================================================
 # 2) Kipppunkt – Einnahmen- vs. Ausgabenentwicklung (2010–2026)
@@ -284,11 +280,11 @@ kipppunkt <- kipppunkt_raw %>%
   pivot_longer(cols = -Wert, names_to = "Jahr_raw", values_to = "Value") %>%
   filter(Wert %in% c("Beitragseinnahmen ohne Zusatzbeiträge", "Ausgaben GKV")) %>%
   mutate(
-    # Extract numeric year and flag forecast
+    # Numerisches Jahr extrahieren und Prognose-Flag setzen
     Prognose = str_detect(Jahr_raw, "\\*"),
     Jahr     = as.integer(str_remove_all(Jahr_raw, "\\*")),
     Value    = as.numeric(Value),
-    # Cleaner legend labels
+    # Lesbarere Legenden-Labels
     Wert = case_when(
       Wert == "Beitragseinnahmen ohne Zusatzbeiträge" ~ "Beitragseinnahmen (ohne Zusatzbeiträge)",
       Wert == "Ausgaben GKV"                          ~ "Ausgaben der GKV",
@@ -297,69 +293,78 @@ kipppunkt <- kipppunkt_raw %>%
     Wert = fct_relevel(Wert, "Ausgaben der GKV")
   )
 
-# Split into actual and forecast data for separate line layers
+# Aufteilen in Ist- und Prognosedaten für separate Linien-Layer
 kipp_actual   <- kipppunkt %>% filter(!Prognose)
-# Forecast: include last actual year (2024) to connect lines seamlessly
+# Prognose: letztes Ist-Jahr (2024) einschließen für nahtlosen Übergang
 kipp_forecast <- kipppunkt %>% filter(Prognose | Jahr == 2024)
 
-# Calculate the gap for ribbon shading
+# Lücke zwischen den Linien für Ribbon-Schattierung berechnen
 kipp_wide <- kipppunkt %>%
   select(Jahr, Wert, Value) %>%
   pivot_wider(names_from = Wert, values_from = Value) %>%
   rename(Ausgaben = `Ausgaben der GKV`,
          Beitraege = `Beitragseinnahmen (ohne Zusatzbeiträge)`)
 
-# Annotations: key policy events – positioned above both lines, arrows point down
+# Annotationen: beziehen sich auf Beitragseinnahmen (untere Linie) – knapp darunter platziert
+# Einheitliche Offsets relativ zur echten Einnahmenlinie (linear interpoliert)
+arrow_gap  <- 5    # Abstand Pfeilspitze <-> Linie (Mrd. €)
+label_drop <- 20   # Abstand Label-Oberkante <-> Linie (Mrd. €)
+
 annotations <- tibble(
-  Jahr    = c(2011.5, 2015, 2020),
-  y_label = c(192, 222, 272),
-  y_arrow = c(176, 210, 258),
-  label   = c(
+  Jahr  = c(2011.5, 2015, 2020),
+  label = c(
     "Erhöhung allg. Beitragssatz\nvon 14,9 % auf 15,5 %",
     "Absenkung allg. Beitragssatz\nvon 15,5 % auf 14,6 %",
     "Geringere Grundlohn-\nsteigerung (Covid-19)"
   )
-)
+) %>%
+  mutate(
+    # Linearinterpolation auf der Beitragseinnahmen-Linie
+    line_y  = approx(x = kipp_wide$Jahr, y = kipp_wide$Beitraege, xout = Jahr)$y,
+    y_arrow = line_y - arrow_gap,
+    y_label = line_y - label_drop
+  )
 
 p_kipppunkt <- ggplot() +
-  # Ribbon: gap between lines
+  # Ribbon: Lücke zwischen den Linien
   geom_ribbon(data = kipp_wide,
               aes(x = Jahr, ymin = Beitraege, ymax = Ausgaben),
-              fill = col_highlight, alpha = 0.08) +
-  # Solid lines: actual data
+              fill = "#b5b5b5", alpha = 0.25) +
+  # Durchgezogene Linien: Ist-Daten
   geom_line(data = kipp_actual,
             aes(x = Jahr, y = Value, color = Wert),
             linewidth = 1.1) +
-  # Dashed lines: forecast (overlapping at 2024 for seamless connection)
+  # Gestrichelte Linien: Prognose (Überlappung bei 2024 für nahtlosen Übergang)
   geom_line(data = kipp_forecast,
             aes(x = Jahr, y = Value, color = Wert),
             linewidth = 1.1, linetype = "21") +
-  # End-of-line direct labels
+  # Direkt-Labels am Linienende
   geom_text(data = kipppunkt %>% filter(Jahr == max(Jahr)),
             aes(x = Jahr + 0.3, y = Value, label = paste0(round(Value, 0), " Mrd."),
                 color = Wert),
             hjust = 0, size = 3.2, fontface = "bold", family = font_body,
             show.legend = FALSE) +
-  # Annotation text (above both lines, vjust = 0 so text grows upward)
+  # Annotations-Text (unterhalb der Einnahmenlinie, vjust = 1 damit Text nach oben wächst)
   geom_text(data = annotations,
             aes(x = Jahr, y = y_label, label = label),
             size = 2.6, color = "#666666", lineheight = 0.9,
-            family = font_body, vjust = 0) +
-  # Annotation arrows (from label downward to the line)
+            family = font_body, vjust = 1) +
+  # Annotations-Pfeile (vom Text nach oben zur Einnahmenlinie)
   geom_segment(data = annotations,
                aes(x = Jahr, xend = Jahr,
-                   y = y_label - 2,
+                   y = y_label + 2,
                    yend = y_arrow),
                color = "#999999", linewidth = 0.3,
                arrow = arrow(length = unit(0.15, "cm"), type = "closed")) +
-  # Scales
+  # Skalen
   scale_color_manual(values = c("Ausgaben der GKV" = col_primary,
-                                "Beitragseinnahmen (ohne Zusatzbeiträge)" = col_secondary)) +
-  scale_x_continuous(breaks = seq(2010, 2026, 2),
+                                "Beitragseinnahmen (ohne Zusatzbeiträge)" = col_accent)) +
+  scale_x_continuous(breaks = seq(2010, 2026, 1),
                      expand = expansion(mult = c(0.02, 0.12))) +
-  scale_y_continuous(limits = c(150, NA),
+  scale_y_continuous(limits = c(100, 400),
+                     breaks = seq(100, 400, 50),
                      labels = label_comma(big.mark = ".", decimal.mark = ","),
-                     expand = expansion(mult = c(0, 0.05))) +
+                     expand = expansion(mult = c(0, 0.02))) +
   labs(
     title    = "Einnahmen- und Ausgabenentwicklung in der GKV",
     subtitle = "Strukturelle Deckungslücke wächst – 2026 beträgt die Differenz rd. 77 Mrd. €",
@@ -376,9 +381,7 @@ p_kipppunkt <- ggplot() +
     plot.margin          = margin(20, 25, 15, 15)
   )
 
-ggsave(paste0(out_path, "kipppunkt_2010_2026.png"), p_kipppunkt,
-       width = 24, height = 16, units = "cm", dpi = 600, bg = col_bg)
-
+p_kipppunkt
 
 # =============================================================================
 # 3) Balkendiagramm – Entwicklung des Steuerzuschusses (2004–2026)
@@ -388,9 +391,9 @@ balken_raw <- read_excel(raw_path, sheet = "Tab_Höhe_Anteil")
 
 balken <- balken_raw %>%
   rename(Wert = 1) %>%
-  # Skip the "in Mrd. Euro" subtitle row
+  # Untertitel-Zeile "in Mrd. Euro" überspringen
   filter(!is.na(Wert), Wert != "NA") %>%
-  # Force all year columns to numeric before pivoting (mixed types from Excel)
+  # Alle Jahresspalten vor dem Pivotieren auf numerisch erzwingen (gemischte Typen aus Excel)
   mutate(across(-Wert, as.numeric)) %>%
   pivot_longer(cols = -Wert, names_to = "Jahr_raw", values_to = "Value") %>%
   filter(Wert %in% c("Steuerzuschuss nach § 221 SGB V",
@@ -398,7 +401,7 @@ balken <- balken_raw %>%
   mutate(
     Jahr  = as.integer(str_remove_all(Jahr_raw, "\\*")),
     Value = replace_na(as.numeric(Value), 0),
-    # Shorter legend labels
+    # Kürzere Legenden-Labels
     Wert  = case_when(
       str_detect(Wert, "221a") ~ "§ 221a SGB V (Sonderzuschüsse)",
       str_detect(Wert, "221")  ~ "§ 221 SGB V (Regelzuschuss)",
@@ -407,14 +410,14 @@ balken <- balken_raw %>%
     Wert = fct_relevel(Wert, "§ 221 SGB V (Regelzuschuss)")
   )
 
-# Total per year for top labels
+# Summe pro Jahr für Labels über den Balken
 balken_total <- balken %>%
   group_by(Jahr) %>%
   summarise(Total = sum(Value), .groups = "drop")
 
 p_barplot <- ggplot(balken, aes(x = Jahr, y = Value, fill = Wert)) +
   geom_col(width = 0.7, position = position_stack(reverse = TRUE)) +
-  # Total label on top of each bar
+  # Summen-Label über jedem Balken
   geom_text(data = balken_total,
             aes(x = Jahr, y = Total, fill = NULL,
                 label = format(round(Total, 1), nsmall = 1, decimal.mark = ",")),
@@ -447,46 +450,53 @@ p_barplot <- ggplot(balken, aes(x = Jahr, y = Value, fill = Wert)) +
     legend.justification = "left"
   )
 
-ggsave(paste0(out_path, "steuerzuschuss_2004_2026.png"), p_barplot,
-       width = 26, height = 14, units = "cm", dpi = 600, bg = col_bg)
-
 
 # =============================================================================
-# Bonus: Grayscale variants for print
+# Graustufen-Varianten
 # =============================================================================
 
 col_bw_dark  <- "#2d2d2d"
 col_bw_mid   <- "#7a7a7a"
 col_bw_light <- "#b5b5b5"
 col_bw_pale  <- "#d9d9d9"
+bw_vals      <- c(col_bw_dark, col_bw_mid, col_bw_light, col_bw_pale)
 
-# Einnahmen BW (alle drei Varianten)
-bw_vals <- c(col_bw_dark, col_bw_mid, col_bw_light, col_bw_pale)
+p_einnahmen_bw        <- p_einnahmen + scale_fill_manual(values = bw_vals)
+p_donut_bw            <- p_donut + scale_fill_manual(values = bw_vals, labels = data_donut$legend_label)
+p_einnahmen_legend_bw <- p_einnahmen_legend + scale_fill_manual(values = bw_vals, labels = legend_labels_clean)
+p_kipppunkt_bw        <- p_kipppunkt + scale_color_manual(values = c("Ausgaben der GKV" = col_bw_dark,
+                                                                      "Beitragseinnahmen (ohne Zusatzbeiträge)" = col_bw_mid))
+p_barplot_bw          <- p_barplot + scale_fill_manual(values = c(col_bw_dark, col_bw_light))
 
-p_einnahmen_bw <- p_einnahmen +
-  scale_fill_manual(values = bw_vals)
-ggsave(paste0(out_path, "einnahmen_anteile_2024_bw.png"), p_einnahmen_bw,
+
+# =============================================================================
+# Export – alle Grafiken gebündelt
+# =============================================================================
+
+# 1) Einnahmen GF 2024 – Varianten
+ggsave(paste0(out_path, "einnahmen_anteile_2024.png"), p_einnahmen,
        width = 26, height = 8, units = "cm", dpi = 600, bg = col_bg)
-
-p_donut_bw <- p_donut +
-  scale_fill_manual(values = bw_vals, labels = data_donut$legend_label)
-ggsave(paste0(out_path, "einnahmen_donut_2024_bw.png"), p_donut_bw,
-       width = 18, height = 18, units = "cm", dpi = 600, bg = col_bg)
-
-p_einnahmen_legend_bw <- p_einnahmen_legend +
-  scale_fill_manual(values = bw_vals, labels = legend_labels_clean)
-ggsave(paste0(out_path, "einnahmen_balken_legende_2024_bw.png"), p_einnahmen_legend_bw,
+ggsave(paste0(out_path, "einnahmen_donut_2024.png"), p_donut,
+       width = 16, height = 16, units = "cm", dpi = 600, bg = col_bg)
+ggsave(paste0(out_path, "einnahmen_balken_legende_2024.png"), p_einnahmen_legend,
        width = 24, height = 10, units = "cm", dpi = 600, bg = col_bg)
 
-# Kipppunkt BW
-p_kipppunkt_bw <- p_kipppunkt +
-  scale_color_manual(values = c("Ausgaben der GKV" = col_bw_dark,
-                                "Beitragseinnahmen (ohne Zusatzbeiträge)" = col_bw_mid))
-ggsave(paste0(out_path, "kipppunkt_2010_2026_bw.png"), p_kipppunkt_bw,
+# 2) Kipppunkt
+ggsave(paste0(out_path, "kipppunkt_2010_2026.png"), p_kipppunkt,
        width = 24, height = 16, units = "cm", dpi = 600, bg = col_bg)
 
-# Barplot BW
-p_barplot_bw <- p_barplot +
-  scale_fill_manual(values = c(col_bw_dark, col_bw_light))
+# 3) Balkendiagramm Steuerzuschuss
+ggsave(paste0(out_path, "steuerzuschuss_2004_2026.png"), p_barplot,
+       width = 26, height = 14, units = "cm", dpi = 600, bg = col_bg)
+
+# Graustufen
+ggsave(paste0(out_path, "einnahmen_anteile_2024_bw.png"), p_einnahmen_bw,
+       width = 26, height = 8, units = "cm", dpi = 600, bg = col_bg)
+ggsave(paste0(out_path, "einnahmen_donut_2024_bw.png"), p_donut_bw,
+       width = 16, height = 16, units = "cm", dpi = 600, bg = col_bg)
+ggsave(paste0(out_path, "einnahmen_balken_legende_2024_bw.png"), p_einnahmen_legend_bw,
+       width = 24, height = 10, units = "cm", dpi = 600, bg = col_bg)
+ggsave(paste0(out_path, "kipppunkt_2010_2026_bw.png"), p_kipppunkt_bw,
+       width = 24, height = 16, units = "cm", dpi = 600, bg = col_bg)
 ggsave(paste0(out_path, "steuerzuschuss_2004_2026_bw.png"), p_barplot_bw,
        width = 26, height = 14, units = "cm", dpi = 600, bg = col_bg)
