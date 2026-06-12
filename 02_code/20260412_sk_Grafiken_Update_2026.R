@@ -29,7 +29,6 @@ col_bg        <- "#FFFFFF"
 einnahmen_colors <- c(col_primary, col_secondary, col_accent, col_accent2)
 
 # Typografie: Systemschriften mit Fallback
-font_title <- "Helvetica Neue"
 font_body  <- "Helvetica Neue"
 
 # Minimales Basis-Theme für alle Diagramme
@@ -511,3 +510,34 @@ ggsave(paste0(out_path, "kipppunkt_2010_2026_bw.png"), p_kipppunkt_bw,
        width = 24, height = 16, units = "cm", dpi = 600, bg = col_bg)
 ggsave(paste0(out_path, "steuerzuschuss_2004_2026_bw.png"), p_barplot_bw,
        width = 26, height = 14, units = "cm", dpi = 600, bg = col_bg)
+
+
+# =============================================================================
+# Export – TIFF-Varianten (LZW-komprimiert, druckfertig)
+# =============================================================================
+
+# Helper: einheitlicher TIFF-Export mit verlustfreier LZW-Kompression.
+# ragg::agg_tiff sorgt fuer sauberes Antialiasing und Schriftrendering.
+save_tiff <- function(file, plot, width, height) {
+  ggsave(paste0(out_path, file), plot,
+         width = width, height = height, units = "cm", dpi = 600, bg = col_bg,
+         device = ragg::agg_tiff, compression = "lzw")
+}
+
+# 1) Einnahmen GF 2024 – Varianten
+save_tiff("einnahmen_anteile_2024.tiff",         p_einnahmen,        26,  8)
+save_tiff("einnahmen_donut_2024.tiff",           p_donut,            16, 16)
+save_tiff("einnahmen_balken_legende_2024.tiff",  p_einnahmen_legend, 24, 10)
+
+# 2) Kipppunkt
+save_tiff("kipppunkt_2010_2026.tiff",            p_kipppunkt,        24, 16)
+
+# 3) Balkendiagramm Steuerzuschuss
+save_tiff("steuerzuschuss_2004_2026.tiff",       p_barplot,          26, 14)
+
+# Graustufen
+save_tiff("einnahmen_anteile_2024_bw.tiff",        p_einnahmen_bw,        26,  8)
+save_tiff("einnahmen_donut_2024_bw.tiff",          p_donut_bw,            16, 16)
+save_tiff("einnahmen_balken_legende_2024_bw.tiff", p_einnahmen_legend_bw, 24, 10)
+save_tiff("kipppunkt_2010_2026_bw.tiff",           p_kipppunkt_bw,        24, 16)
+save_tiff("steuerzuschuss_2004_2026_bw.tiff",      p_barplot_bw,          26, 14)
